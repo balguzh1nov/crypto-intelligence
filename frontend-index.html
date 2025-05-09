@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CryptoIntelligence Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .crypto-card {
+      transition: transform 0.2s;
+    }
+    .crypto-card:hover {
+      transform: translateY(-5px);
+    }
+    .up {
+      color: #28a745;
+    }
+    .down {
+      color: #dc3545;
+    }
+    .alert-badge {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background-color: #dc3545;
+      color: white;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+      <a class="navbar-brand" href="#">CryptoIntelligence</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link active" href="#" id="dashboardLink">Dashboard</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" id="alertsLink">Alerts</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" id="analysisLink">Analysis</a>
+          </li>
+        </ul>
+      </div>
+      <div class="d-flex text-light">
+        <div id="connectionStatus" class="me-3">
+          <span class="badge bg-secondary">Offline</span>
+        </div>
+        <div id="lastUpdated"></div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <div class="row">
+      <div class="col-md-12 mb-4">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Market Overview</h5>
+            <div>
+              <select id="sortOption" class="form-select form-select-sm">
+                <option value="rank">By Rank</option>
+                <option value="priceChangeDesc">Biggest Gainers</option>
+                <option value="priceChangeAsc">Biggest Losers</option>
+                <option value="volumeDesc">Highest Volume</option>
+              </select>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="row" id="cryptoCards"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row mb-4">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">Latest Alerts</h5>
+          </div>
+          <div class="card-body">
+            <div id="alertsList" class="list-group">
+              <div class="text-center py-3">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading alerts...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="detailView" class="row mb-4 d-none">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0" id="detailTitle">Cryptocurrency Details</h5>
+            <button type="button" class="btn-close" id="closeDetail"></button>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-8">
+                <canvas id="priceChart" width="400" height="200"></canvas>
+              </div>
+              <div class="col-md-4">
+                <div id="detailInfo"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <script>
+    // Глобальные переменные
+    let websocket;
+    let cryptoData = [];
+    let alerts = [];
+    let selectedCrypto = null;
+    let priceChart = null;
+
+    // Инициализация WebSocket
+    function connectWebSocket() {
+      websocket = new WebSocket(`http://localhost:3001/ws`);
+      
+      websocket.onopen = () => {
+        console.log('WebSocket connection established');
+        document.getElementById('connectionStatus').innerHTML = '<span class="badge bg-success">Connected</span>';
+        
+        // Запрашиваем начальные данные
+        sendWebSocketRequest('getAlerts', { limit: 5 });
+      };
+      
+      websocket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          console.log('Received message type:', message.type);
+          
+          switch (message.type) {
+            case 'initialData':
+              handleInitialData(message.data);
+              break;
+            case 'marketUpdate':
+              handleMarketUpdate(message.data);
+              break;
+            case 'alerts':
+            case 'latestAlerts':
+              handleAlerts(message.data);
+              break;
+            case 'technicalIndicators':
+              handleTechnicalIndicators(message.data);
+              break;
+            case 'historicalData':
+              handleHistoricalData(message.data);
+              break;
+            case 'newAlerts':
+              handleNewAlerts(message.data);
+              break;
+          }
+          
+          // Обновляем время последнего обновления
+          if (message.timestamp) {
+            document.getElementById('lastUpdated').textContent = `Last updated: ${new Date(message.timestamp).toLocaleTimeString()}`;
+          }
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+      
+      websocket.onclose = () => {
+        console.log('WebSocket connection closed');
+        document.getElementById('connectionStatus').innerHTML = '<span class="badge bg-secondary">Offline</span>';
+        
+        // Пытаемся переподключиться через 5 секунд
+        setTimeout(connectWebSocket, 5000);
+      };
+      
+      websocket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        document.getElementById('connectionStatus').innerHTML = '<span class="badge bg-danger">Error</span>';
+      };
+    }
+
+    // Отправка запроса через WebSocket
+    function sendWebSocketRequest(type, params = {}) {
+      if (websocket && websocket.readyState === WebSocket.OPEN) {
+        const request = {
+          type: type,
+          requestId: Date.now().toString(),
+          ...params
+        };
+        
+        websocket.send(JSON.stringify(request));
+      } else {
+        console.error('WebSocket not connected');
+      }
+    }
+
+    // Обработка начальных данных
+    function handleInitialData(data) {
+      if (data.marketData) {
+        handleMarketUpdate(data.marketData);
+      }
+    }
+
+    // Обработка обновлений рынка
+    function handleMarketUpdate(data) {
+      cryptoData = data;
+      renderCryptoCards();
+    }
+
+    // Обработка оповещений
+    function handleAlerts(data) {
+      alerts = data || [];
+      renderAlerts();
+    }
+
+    // Обработка новых оповещений
+    function handleNewAlerts(data) {
+      if (data && data.length > 0) {
+        // Добавляем новые оповещения в начало списка
+        alerts = [...data, ...alerts].slice(0, 20);
+        renderAlerts();
+        
+        // Показываем уведомление
+        showNotification(`Новое оповещение: ${data[0].message}`);
+      }
+    }
+
+    // Обработка технических индикаторов
+    function handleTechnicalIndicators(data) {
+      if (selectedCrypto && data.cryptoId === selectedCrypto.id) {
+        renderTechnicalIndicators(data);
+      }
+    }
+
+    // Обработка исторических данных
+    function handleHistoricalData(data) {
+      if (selectedCrypto && data) {
+        renderPriceChart(data);
+      }
+    }
+
+    // Отображение карточек криптовалют
+    function renderCryptoCards() {
+      const container = document.getElementById('cryptoCards');
+      const sortOption = document.getElementById('sortOption').value;
+      
+      // Сортировка данных
+      const sortedData = [...cryptoData];
+      
+      switch (sortOption) {
+        case 'priceChangeDesc':
+          sortedData.sort((a, b) => b.price_change_percentage_24h - a.price_change_percentage_24h);
+          break;
+        case 'priceChangeAsc':
+          sortedData.sort((a, b) => a.price_change_percentage_24h - b.price_change_percentage_24h);
+          break;
+        case 'volumeDesc':
+          sortedData.sort((a, b) => b.total_volume - a.total_volume);
+          break;
+        default: // rank
+          sortedData.sort((a, b) => a.market_cap_rank - b.market_cap_rank);
+          break;
+      }
+      
+      // Ограничиваем количество отображаемых криптовалют
+      const displayData = sortedData.slice(0, 18);
+      
+      // Очищаем контейнер
+      container.innerHTML = '';
+      
+      // Добавляем карточки
+      displayData.forEach(crypto => {
+        const cardElement = document.createElement('div');
+        cardElement.className = 'col-md-2 col-sm-4 col-6 mb-3';
+        
+        const priceChangeClass = crypto.price_change_percentage_24h >= 0 ? 'up' : 'down';
+        const priceChangeIcon = crypto.price_change_percentage_24h >= 0 ? '▲' : '▼';
+        
+        // Проверяем, есть ли оповещения для этой криптовалюты
+        const cryptoAlerts = alerts.filter(alert => alert.crypto_id === crypto.id);
+        const alertBadge = cryptoAlerts.length > 0 
+          ? `<div class="alert-badge">${cryptoAlerts.length}</div>` 
+          : '';
+        
+        cardElement.innerHTML = `
+          <div class="card crypto-card position-relative" data-id="${crypto.id}">
+            ${alertBadge}
+            <div class="card-body p-2 text-center">
+              <img src="${crypto.image}" alt="${crypto.name}" class="img-fluid mb-2" style="height: 40px;">
+              <h6 class="card-title mb-0">${crypto.symbol.toUpperCase()}</h6>
+              <p class="card-text mb-1">$${crypto.current_price.toLocaleString()}</p>
+              <p class="card-text ${priceChangeClass}">
+                ${priceChangeIcon} ${Math.abs(crypto.price_change_percentage_24h).toFixed(2)}%
+              </p>
+            </div>
+          </div>
+        `;
+        
+        container.appendChild(cardElement);
+        
+        // Добавляем обработчик события для просмотра деталей
+        cardElement.querySelector('.crypto-card').addEventListener('click', () => {
+          selectedCrypto = crypto;
+          showCryptoDetails(crypto);
+        });
+      });
+    }
+
+    // Отображение оповещений
+    function renderAlerts() {
+      const container = document.getElementById('alertsList');
+      
+      if (!alerts || alerts.length === 0) {
+        container.innerHTML = '<div class="text-center py-3">No alerts yet</div>';
+        return;
+      }
+      
+      container.innerHTML = '';
+      
+      alerts.forEach(alert => {
+        const alertElement = document.createElement('div');
+        alertElement.className = 'list-group-item list-group-item-action';
+        
+        let severityClass = 'bg-info';
+        if (alert.severity === 'high') {
+          severityClass = 'bg-danger';
+        } else if (alert.severity === 'medium') {
+          severityClass = 'bg-warning';
+        }
+        
+        alertElement.innerHTML = `
+          <div class="d-flex w-100 justify-content-between">
+            <h6 class="mb-1">
+              <span class="badge ${severityClass} me-2">${alert.alert_type}</span>
+              ${alert.crypto_symbol ? alert.crypto_symbol.toUpperCase() : ''}
+            </h6>
+            <small>${new Date(alert.timestamp).toLocaleString()}</small>
+          </div>
+          <p class="mb-1">${alert.message}</p>
+          <small>
+            ${alert.percentage_change ? `Change: ${alert.percentage_change.toFixed(2)}%` : ''}
+          </small>
+        `;
+        
+        container.appendChild(alertElement);
+        
+        // Добавляем обработчик события для просмотра деталей криптовалюты
+        alertElement.addEventListener('click', () => {
+          if (alert.crypto_id) {
+            const crypto = cryptoData.find(c => c.id === alert.crypto_id);
+            if (crypto) {
+              selectedCrypto = crypto;
+              showCryptoDetails(crypto);
+            }
+          }
+        });
+      });
+    }
+
+    // Показать детали криптовалюты
+    function showCryptoDetails(crypto) {
+      document.getElementById('detailView').classList.remove('d-none');
+      document.getElementById('detailTitle').textContent = `${crypto.name} (${crypto.symbol.toUpperCase()})`;
+      
+      const detailInfo = document.getElementById('detailInfo');
+      detailInfo.innerHTML = `
+        <div class="mb-3">
+          <h3>$${crypto.current_price.toLocaleString()}</h3>
+          <p class="${crypto.price_change_percentage_24h >= 0 ? 'text-success' : 'text-danger'}">
+            ${crypto.price_change_percentage_24h >= 0 ? '▲' : '▼'} 
+            ${Math.abs(crypto.price_change_percentage_24h).toFixed(2)}% (24h)
+          </p>
+        </div>
+        <div class="mb-3">
+          <h5>Market Details</h5>
+          <p><strong>Market Cap:</strong> $${crypto.market_cap.toLocaleString()}</p>
+          <p><strong>Volume (24h):</strong> $${crypto.total_volume.toLocaleString()}</p>
+          <p><strong>Rank:</strong> #${crypto.market_cap_rank}</p>
+        </div>
+        <div id="technicalIndicators">
+          <h5>Technical Indicators</h5>
+          <p class="text-center">Loading indicators...</p>
+        </div>
+      `;
+      
+      // Запрашиваем исторические данные и технические индикаторы
+      sendWebSocketRequest('getHistoricalData', { cryptoId: crypto.id, days: 14 });
+      sendWebSocketRequest('getTechnicalIndicators', { cryptoId: crypto.id });
+    }
+
+    // Отображение графика цены
+    function renderPriceChart(data) {
+      if (!data.prices || data.prices.length === 0) return;
+      
+      const ctx = document.getElementById('priceChart').getContext('2d');
+      
+      // Преобразование данных для графика
+      const chartData = data.prices.map(item => ({
+        x: new Date(item[0]),
+        y: item[1]
+      }));
+      
+      // Уничтожаем предыдущий график, если он существует
+      if (priceChart) {
+        priceChart.destroy();
+      }
+      
+      // Создаем новый график
+      priceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          datasets: [{
+            label: `${selectedCrypto.name} Price (USD)`,
+            data: chartData,
+            borderColor: 'rgba(75, 192, 192, 1)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: {
+              type: 'time',
+              time: {
+                unit: 'day'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Отображение технических индикаторов
+    function renderTechnicalIndicators(data) {
+      const container = document.getElementById('technicalIndicators');
+      
+      if (!data.indicators || !data.interpretation) {
+        container.innerHTML = '<p class="text-center">No technical indicators available</p>';
+        return;
+      }
+      
+      const indicators = data.indicators;
+      const interpretation = data.interpretation;
+      
+      let signalClass = 'text-secondary';
+      let signalText = 'NEUTRAL';
+      
+      if (interpretation.overall && interpretation.overall.signal) {
+        if (interpretation.overall.signal === 'buy') {
+          signalClass = 'text-success';
+          signalText = 'BUY';
+        } else if (interpretation.overall.signal === 'sell') {
+          signalClass = 'text-danger';
+          signalText = 'SELL';
+        }
+      }
+      
+      let rsiValue = 'N/A';
+      let rsiClass = 'text-secondary';
+      
+      if (indicators.indicators.rsi && indicators.indicators.rsi.current !== null) {
+        rsiValue = indicators.indicators.rsi.current.toFixed(2);
+        
+        if (rsiValue >= 70) {
+          rsiClass = 'text-danger'; // Overbought
+        } else if (rsiValue <= 30) {
+          rsiClass = 'text-success'; // Oversold
+        }
+      }
+      
+      container.innerHTML = `
+        <h5>Technical Indicators</h5>
+        <div class="text-center mb-3">
+          <h4 class="${signalClass}">SIGNAL: ${signalText}</h4>
+          <p class="text-muted small">Based on multiple indicators</p>
+        </div>
+        <div class="row">
+          <div class="col-6">
+            <p><strong>RSI (14):</strong> <span class="${rsiClass}">${rsiValue}</span></p>
+          </div>
+          <div class="col-6">
+            <p><strong>SMA Trend:</strong> ${interpretation.sma?.crossover || 'N/A'}</p>
+          </div>
+        </div>
+      `;
+    }
+
+    // Показать уведомление
+    function showNotification(message) {
+      // Можно реализовать всплывающие уведомления
+      console.log('Notification:', message);
+    }
+
+    // Обработчики событий
+    document.getElementById('sortOption').addEventListener('change', renderCryptoCards);
+    
+    document.getElementById('closeDetail').addEventListener('click', () => {
+      document.getElementById('detailView').classList.add('d-none');
+      selectedCrypto = null;
+      
+      if (priceChart) {
+        priceChart.destroy();
+        priceChart = null;
+      }
+    });
+    
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', () => {
+      connectWebSocket();
+    });
+  </script>
+</body>
+</html>

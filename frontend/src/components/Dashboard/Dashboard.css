@@ -1,0 +1,169 @@
+/* Основные стили для дашборда */
+.crypto-dashboard {
+    padding: 20px 0;
+  }
+  
+  /* Стили для карточек криптовалют */
+  .crypto-card {
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: 1px solid #f1f1f1;
+    overflow: hidden;
+    height: 100%;
+  }
+  
+  .crypto-card:hover {
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+  }
+  
+  /* Стили для индикаторов изменения цены */
+  .price-up {
+    color: #28a745;
+    font-weight: 600;
+  }
+  
+  .price-down {
+    color: #dc3545;
+    font-weight: 600;
+  }
+  
+  /* Стили для индикатора оповещений */
+  .alert-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background-color: #dc3545;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 12px;
+    font-weight: bold;
+    z-index: 1;
+  }
+  
+  /* Стили для карточек на главном дашборде */
+  .market-overview-card {
+    border-radius: 10px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    margin-bottom: 20px;
+  }
+  
+  .market-overview-card:hover {
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+  }
+  
+  .market-overview-card .card-header {
+    background-color: rgba(0, 123, 255, 0.1);
+    font-weight: 600;
+  }
+  
+  /* Стили для секции "Top Movers" */
+  .top-movers-card {
+    border-left: 4px solid;
+  }
+  
+  .top-gainers {
+    border-color: #28a745;
+  }
+  
+  .top-losers {
+    border-color: #dc3545;
+  }
+  
+  /* Стили для Market Overview */
+  .market-stats {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  
+  .market-stat-item {
+    padding: 15px;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    margin-right: 15px;
+    margin-bottom: 15px;
+    min-width: 200px;
+  }
+  
+  .market-stat-item h6 {
+    color: #6c757d;
+    margin-bottom: 5px;
+  }
+  
+  .market-stat-item .value {
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+  
+  /* Стили для страницы детального просмотра */
+  .crypto-detail {
+    padding: 20px 0;
+  }
+  
+  .crypto-detail h2 img {
+    vertical-align: middle;
+  }
+  
+  .detail-card {
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  
+  /* Стили для графика цены */
+  .price-chart-container {
+    height: 400px;
+    width: 100%;
+  }
+  
+  /* Адаптивность */
+  @media (max-width: 576px) {
+    .market-stat-item {
+      flex-basis: 100%;
+      margin-right: 0;
+    }
+    
+    .crypto-card {
+      margin-bottom: 10px;
+    }
+  }
+  
+  /* Темная тема */
+  .dark-theme .crypto-card {
+    background-color: #2a2a2a;
+    border-color: #3a3a3a;
+    color: #e0e0e0;
+  }
+  
+  .dark-theme .card-header {
+    background-color: #333;
+    color: #f8f9fa;
+  }
+  
+  .dark-theme .market-stat-item {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+  }
+  
+  .dark-theme .market-stat-item h6 {
+    color: #adb5bd;
+  }
+  
+  /* Анимации для лоадера */
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
+  
+  .loading-pulse {
+    animation: pulse 1.5s infinite;
+  }
