@@ -18,16 +18,11 @@
 
 ## Как установить и запустить
 
-### Требования
-
-- Node.js (v16+)
-- npm
-
 ### Быстрый старт
 
 ```bash
 # Клонировать репозиторий
-git clone https://github.com/your-username/crypto-intelligence.git
+git clone https://github.com/balguzh1nov/crypto-intelligence.git
 cd crypto-intelligence
 
 # Установить зависимости
